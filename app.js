@@ -8,8 +8,7 @@
 const SUPABASE_URL = 'https://pqnpbsyhmlpfmwhhhrts.supabase.co/';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxbnBic3lobWxwZm13aGhocnRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczNzAzMjQsImV4cCI6MjA5Mjk0NjMyNH0.3rAnUK0R2jQ9UUBiKQeULllEN1T1gHkORE2imkbAaq8';
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ─── Static Data ───────────────────────
 
@@ -101,7 +100,7 @@ const dom = {
 async function loadTemplates() {
   dom.templateList.innerHTML = '<div class="template-loading">Загрузка шаблонов...</div>';
 
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from('templates')
     .select('*')
     .order('created_at', { ascending: true });
@@ -124,7 +123,7 @@ async function loadTemplates() {
 }
 
 async function seedDefaults() {
-  const { error } = await supabase.from('templates').insert(DEFAULT_TEMPLATES);
+  const { error } = await sb.from('templates').insert(DEFAULT_TEMPLATES);
   if (error) {
     console.error('Seed error:', error);
     dom.templateList.innerHTML = '<div class="template-loading">Ошибка инициализации</div>';
@@ -487,7 +486,7 @@ async function saveTemplate() {
   dom.saveTemplateBtn.classList.add('loading');
   dom.modalMessage.textContent = '';
 
-  const { error } = await supabase.from('templates').insert({
+  const { error } = await sb.from('templates').insert({
     category: modalState.category,
     model: modalState.model,
     mode: modalState.mode,
