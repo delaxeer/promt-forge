@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PromptForge — генератор промптов</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="container">
+
+    <!-- Header -->
+    <header class="header">
+      <div class="header-row">
+        <div class="logo">
+          <div class="logo-icon">⬡</div>
+          <span class="logo-text">PromptForge</span>
+        </div>
+        <button class="add-template-btn" id="openModalBtn">+ Добавить шаблон</button>
+      </div>
+      <p class="header-sub">Выбери нейронку → опиши задачу → получи готовый промпт</p>
+    </header>
+
+    <!-- Step 1: Category -->
+    <section class="step">
+      <div class="step-number">01</div>
+      <div class="step-content">
+        <h2 class="step-title">Что делаем?</h2>
+        <div class="category-tabs" id="categoryTabs">
+          <button class="cat-tab active" data-cat="photo">
+            <span class="cat-icon">◐</span> Фото
+          </button>
+          <button class="cat-tab" data-cat="video">
+            <span class="cat-icon">▶</span> Видео
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 2: Model -->
+    <section class="step">
+      <div class="step-number">02</div>
+      <div class="step-content">
+        <h2 class="step-title">Нейронка</h2>
+        <div class="model-grid" id="modelGrid"></div>
+      </div>
+    </section>
+
+    <!-- Step 3: Mode -->
+    <section class="step">
+      <div class="step-number">03</div>
+      <div class="step-content">
+        <h2 class="step-title">Режим</h2>
+        <div class="mode-grid" id="modeGrid"></div>
+      </div>
+    </section>
+
+    <!-- Step 4: Template -->
+    <section class="step">
+      <div class="step-number">04</div>
+      <div class="step-content">
+        <h2 class="step-title">Шаблон</h2>
+        <div class="template-list" id="templateList">
+          <div class="template-loading">Загрузка шаблонов...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 5: Input -->
+    <section class="step">
+      <div class="step-number">05</div>
+      <div class="step-content">
+        <h2 class="step-title" id="inputTitle">Референс + задача</h2>
+
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" id="fileInput" accept="image/*">
+          <div class="upload-placeholder" id="uploadPlaceholder">
+            <div class="upload-arrow">↑</div>
+            <div class="upload-main-text">Загрузи фото</div>
+            <div class="upload-sub-text">Перетащи, выбери или вставь <kbd>Ctrl+V</kbd></div>
+          </div>
+          <div class="preview-container" id="previewContainer">
+            <img class="preview-image" id="previewImage">
+            <button class="remove-image" id="removeBtn">✕ Удалить</button>
+          </div>
+        </div>
+        <div class="photo-badge" id="photoBadge">необязательно</div>
+
+        <div class="textarea-wrap">
+          <textarea id="taskInput" placeholder="Опиши что нужно создать..." rows="3"></textarea>
+        </div>
+
+        <button class="generate-btn" id="generateBtn">
+          <span class="btn-text">Сгенерировать промпт</span>
+          <span class="btn-loader" id="btnLoader"><span class="spinner"></span></span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Result -->
+    <section class="result-section" id="resultSection">
+      <div class="result-card">
+        <div class="result-top">
+          <span class="result-model" id="resultModel"></span>
+          <button class="copy-btn" id="copyBtn">Скопировать</button>
+        </div>
+        <div class="result-body" id="resultBody"></div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Modal: Add Template -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Новый шаблон</h3>
+        <button class="modal-close" id="closeModalBtn">✕</button>
+      </div>
+      <div class="modal-body">
+
+        <label class="field-label">Категория</label>
+        <div class="modal-row">
+          <button class="modal-option active" data-field="modal-cat" data-value="photo">Фото</button>
+          <button class="modal-option" data-field="modal-cat" data-value="video">Видео</button>
+        </div>
+
+        <label class="field-label">Нейронка</label>
+        <div class="modal-row" id="modalModelRow"></div>
+
+        <label class="field-label">Режим</label>
+        <div class="modal-row">
+          <button class="modal-option active" data-field="modal-mode" data-value="create">Создать</button>
+          <button class="modal-option" data-field="modal-mode" data-value="edit">Редактировать</button>
+        </div>
+
+        <label class="field-label">Название</label>
+        <input type="text" class="modal-input" id="modalName" placeholder="Например: Портрет в неоне">
+
+        <label class="field-label">Шаблон промпта</label>
+        <textarea class="modal-textarea" id="modalTemplate" rows="4" placeholder="Shot on [camera], [lens], [lighting]...&#10;Используй [placeholder] для заменяемых частей"></textarea>
+
+        <label class="field-label">Твоё имя <span class="optional-tag">необязательно</span></label>
+        <input type="text" class="modal-input" id="modalAuthor" placeholder="Аноним">
+
+        <button class="generate-btn modal-save-btn" id="saveTemplateBtn">
+          <span class="btn-text">Сохранить шаблон</span>
+          <span class="btn-loader" id="saveBtnLoader"><span class="spinner"></span></span>
+        </button>
+
+        <div class="modal-message" id="modalMessage"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
