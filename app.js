@@ -1,103 +1,173 @@
-// ========================================
-// API Proxy — DeepSeek
-// Vercel Serverless Function
-// ========================================
+const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+const categoryTabs = document.getElementById('categoryTabs');
+const modelGrid = document.getElementById('modelGrid');
+const modeGrid = document.getElementById('modeGrid');
+const templateList = document.getElementById('templateList');
+const taskInput = document.getElementById('taskInput');
+const generateBtn = document.getElementById('generateBtn');
+const resultSection = document.getElementById('resultSection');
+const resultModel = document.getElementById('resultModel');
+const resultBody = document.getElementById('resultBody');
+const copyBtn = document.getElementById('copyBtn');
 
-  const { messages = [], system, max_tokens } = req.body || {};
+let templates = [];
+let selectedCategory = 'photo';
+let selectedModel = 'nana';
+let selectedMode = 'create';
+let selectedTemplate = null;
 
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({
-      content: [{ type: 'text', text: 'DEEPSEEK_API_KEY не настроен в Vercel Environment Variables' }]
+const MODELS = [
+  { id: 'nana', label: 'Nana' },
+  { id: 'gpt2', label: 'GPT-2' },
+  { id: 'kling', label: 'Kling' },
+  { id: 'sora2', label: 'Sora2' }
+];
+
+const MODES = [
+  { id: 'create', label: 'Создать' },
+  { id: 'edit', label: 'Редактировать' }
+];
+
+function setActiveButton(container, target) {
+  Array.from(container.children).forEach((button) => {
+    button.classList.toggle('active', button === target);
+  });
+}
+
+function renderModels() {
+  modelGrid.innerHTML = '';
+  MODELS.forEach((model) => {
+    const btn = document.createElement('button');
+    btn.className = 'model-card' + (selectedModel === model.id ? ' active' : '');
+    btn.type = 'button';
+    btn.textContent = model.label;
+    btn.addEventListener('click', () => {
+      selectedModel = model.id;
+      renderModels();
+      renderTemplates();
     });
-  }
+    modelGrid.appendChild(btn);
+  });
+}
 
-  function normalizeContent(content) {
-    if (Array.isArray(content)) {
-      return content
-        .map((part) => {
-          if (part?.type === 'text') return part.text || '';
+function renderModes() {
+  modeGrid.innerHTML = '';
+  MODES.forEach((mode) => {
+    const btn = document.createElement('button');
+    btn.className = 'model-card' + (selectedMode === mode.id ? ' active' : '');
+    btn.type = 'button';
+    btn.textContent = mode.label;
+    btn.addEventListener('click', () => {
+      selectedMode = mode.id;
+      renderModes();
+      renderTemplates();
+    });
+    modeGrid.appendChild(btn);
+  });
+}
 
-          if (part?.type === 'image') {
-            return '[User attached an image, but this DeepSeek proxy cannot read image pixels. Use only the written task and do not invent unseen image details.]';
-          }
-
-          return '';
-        })
-        .filter(Boolean)
-        .join('\n\n');
-    }
-
-    return String(content || '');
-  }
-
-  const deepseekMessages = [];
-
-  deepseekMessages.push({
-    role: 'system',
-    content: 'Возьми этот промт ТОЛЬКО как шаблон и сделай под мою задачу:'
+function renderTemplates() {
+  const filtered = templates.filter((template) => {
+    return template.category === selectedCategory && template.model === selectedModel && template.mode === selectedMode;
   });
 
-  if (system) {
-    deepseekMessages.push({
-      role: 'system',
-      content: String(system)
-    });
+  templateList.innerHTML = '';
+
+  if (filtered.length === 0) {
+    templateList.innerHTML = '<div class="template-loading">Шаблонов не найдено. Попробуй другую комбинацию.</div>';
+    return;
   }
 
-  for (const m of messages) {
-    deepseekMessages.push({
-      role: m.role === 'assistant' ? 'assistant' : 'user',
-      content: normalizeContent(m.content)
+  filtered.forEach((template) => {
+    const card = document.createElement('button');
+    card.className = 'template-card' + (selectedTemplate?.id === template.id ? ' active' : '');
+    card.type = 'button';
+    card.innerHTML = `
+      <strong>${template.name}</strong>
+      <div class="template-meta">${template.author || 'system'}</div>
+      <div class="template-text">${template.template}</div>
+    `;
+    card.addEventListener('click', () => {
+      selectedTemplate = template;
+      renderTemplates();
     });
+    templateList.appendChild(card);
+  });
+}
+
+async function loadTemplates() {
+  templateList.innerHTML = '<div class="template-loading">Загрузка шаблонов...</div>';
+
+  const { data, error } = await supabase.from('templates').select('*').order('created_at', { ascending: false });
+
+  if (error) {
+    templateList.innerHTML = `<div class="template-loading">Ошибка загрузки шаблонов: ${error.message}</div>`;
+    return;
   }
+
+  templates = data || [];
+  selectedTemplate = templates.find((item) => item.category === selectedCategory && item.model === selectedModel && item.mode === selectedMode) || null;
+  renderTemplates();
+}
+
+async function generatePrompt() {
+  const task = taskInput.value.trim();
+  if (!task) {
+    alert('Опиши, что нужно создать.');
+    return;
+  }
+
+  const promptText = selectedTemplate ? `${selectedTemplate.template}\n\nЗадача: ${task}` : task;
+
+  resultModel.textContent = `Model: ${selectedModel.toUpperCase()}`;
+  resultBody.textContent = 'Генерируется...';
+  resultSection.style.display = 'block';
 
   try {
-    const response = await fetch('https://api.deepseek.com/chat/completions', {
+    const response = await fetch('/api/deepseek', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash',
-        messages: deepseekMessages,
-        max_tokens: max_tokens || 1000,
-        stream: false,
-        thinking: { type: 'disabled' }
+        system: 'Ты помогаешь создавать промпты по шаблону.',
+        messages: [{ role: 'user', content: promptText }],
+        max_tokens: 800
       })
     });
 
     const data = await response.json();
-
-    if (!response.ok || data.error) {
-      return res.status(response.status || 400).json({
-        content: [{
-          type: 'text',
-          text: `Ошибка DeepSeek: ${data.error?.message || JSON.stringify(data)}`
-        }]
-      });
+    if (!response.ok) {
+      throw new Error(data.content?.[0]?.text || 'Ошибка ответа сервера');
     }
 
-    const text = data.choices?.[0]?.message?.content || 'Ошибка генерации';
-
-    return res.status(200).json({
-      content: [{ type: 'text', text }]
-    });
-
+    resultBody.textContent = data.content?.[0]?.text || 'Пустой ответ.';
   } catch (error) {
-    return res.status(500).json({
-      content: [{ type: 'text', text: `Ошибка сервера: ${error.message}` }]
-    });
+    resultBody.textContent = `Ошибка: ${error.message}`;
   }
 }
+
+function setupCategoryTabs() {
+  Array.from(categoryTabs.children).forEach((button) => {
+    button.addEventListener('click', () => {
+      selectedCategory = button.dataset.cat;
+      setActiveButton(categoryTabs, button);
+      renderTemplates();
+    });
+  });
+}
+
+copyBtn.addEventListener('click', () => {
+  const text = resultBody.textContent;
+  if (!text) return;
+  navigator.clipboard.writeText(text);
+});
+
+generateBtn.addEventListener('click', generatePrompt);
+
+renderModels();
+renderModes();
+setupCategoryTabs();
+loadTemplates();
