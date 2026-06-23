@@ -1,7 +1,7 @@
 const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
 const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';
 
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const categoryTabs = document.getElementById('categoryTabs');
 const modelGrid = document.getElementById('modelGrid');
@@ -102,7 +102,7 @@ function renderTemplates() {
 async function loadTemplates() {
   templateList.innerHTML = '<div class="template-loading">Загрузка шаблонов...</div>';
 
-  const { data, error } = await supabase.from('templates').select('*').order('created_at', { ascending: false });
+  const { data, error } = await supabaseClient.from('templates').select('*').order('created_at', { ascending: false });
 
   if (error) {
     templateList.innerHTML = `<div class="template-loading">Ошибка загрузки шаблонов: ${error.message}</div>`;
