@@ -132,7 +132,7 @@ async function generatePrompt() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        system: 'Ты помогаешь создавать промпты по шаблону.',
+        system: 'Выдай ТОЛЬКО готовый промт без объяснений, комментариев и лишнего текста. Промт - это все, что нужно.',
         messages: [{ role: 'user', content: promptText }],
         max_tokens: 800
       })
